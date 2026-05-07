@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Coletor Nilo" },
+      { name: "description", content: "Coletor Nilo" },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Coletor Nilo" },
+      { property: "og:description", content: "Coletor Nilo" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Coletor Nilo" },
+      { name: "twitter:description", content: "Coletor Nilo" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e9deba80-3fe7-403f-8544-f65e53a9b019/id-preview-5e7bc46e--4bb92ef0-0afd-4483-8cb8-17168d9f1c02.lovable.app-1778178287876.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e9deba80-3fe7-403f-8544-f65e53a9b019/id-preview-5e7bc46e--4bb92ef0-0afd-4483-8cb8-17168d9f1c02.lovable.app-1778178287876.png" },
     ],
     links: [
       {

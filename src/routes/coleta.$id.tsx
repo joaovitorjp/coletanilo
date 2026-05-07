@@ -21,8 +21,9 @@ function ColetaPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [mode, setMode] = useState<"keyboard" | "scan">("keyboard");
   const [barcode, setBarcode] = useState("");
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState<string>("");
   const [scanning, setScanning] = useState(false);
+  const qtyRef = useRef<HTMLInputElement>(null);
   const [finishing, setFinishing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,10 +38,11 @@ function ColetaPage() {
 
   useEffect(() => { load(); }, [id]);
 
-  const addItem = async (code: string, q: number) => {
+  const addItem = async (code: string, qStr: string) => {
     const clean = code.trim();
+    const q = parseInt(qStr, 10);
     if (!clean) { toast.error("Informe o código"); return; }
-    if (q < 1) { toast.error("Quantidade inválida"); return; }
+    if (!q || q < 1) { toast.error("Informe a quantidade"); qtyRef.current?.focus(); return; }
     const { data, error } = await supabase
       .from("collection_items")
       .insert({ collection_id: id, barcode: clean, quantity: q })
@@ -49,7 +51,7 @@ function ColetaPage() {
     if (error) { toast.error(error.message); return; }
     setItems((prev) => [data as Item, ...prev]);
     setBarcode("");
-    setQty(1);
+    setQty("");
     toast.success(`${clean} × ${q} adicionado`);
     inputRef.current?.focus();
   };
@@ -83,7 +85,13 @@ function ColetaPage() {
       <Toaster richColors position="top-center" />
       {scanning && (
         <BarcodeScanner
-          onDetected={(code) => { setScanning(false); addItem(code, qty || 1); }}
+          onDetected={(code) => {
+            setScanning(false);
+            setBarcode(code);
+            setQty("");
+            toast.info(`Código ${code} — informe a quantidade`);
+            setTimeout(() => qtyRef.current?.focus(), 100);
+          }}
           onClose={() => setScanning(false)}
         />
       )}
@@ -127,27 +135,28 @@ function ColetaPage() {
           <div>
             <label className="text-xs font-medium text-muted-foreground">Quantidade</label>
             <div className="mt-1 flex items-center gap-2">
-              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(Math.max(1, qty - 1))}>
+              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(String(Math.max(1, (parseInt(qty, 10) || 0) - 1)))}>
                 <Minus className="h-4 w-4" />
               </Button>
               <Input
+                ref={qtyRef}
                 type="number"
                 inputMode="numeric"
+                placeholder="0"
                 value={qty}
-                onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => { if (e.key === "Enter") addItem(barcode, qty); }}
                 className="h-12 text-center text-base font-semibold"
               />
-              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(qty + 1)}>
+              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(String((parseInt(qty, 10) || 0) + 1))}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {mode === "keyboard" && (
-            <Button onClick={() => addItem(barcode, qty)} className="h-12 w-full gap-2" style={{ background: "var(--gradient-primary)" }}>
-              <Plus className="h-4 w-4" /> Adicionar
-            </Button>
-          )}
+          <Button onClick={() => addItem(barcode, qty)} disabled={!barcode || !qty} className="h-12 w-full gap-2" style={{ background: "var(--gradient-primary)" }}>
+            <Plus className="h-4 w-4" /> Adicionar
+          </Button>
         </div>
 
         <div>

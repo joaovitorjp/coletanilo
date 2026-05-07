@@ -21,8 +21,9 @@ function ColetaPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [mode, setMode] = useState<"keyboard" | "scan">("keyboard");
   const [barcode, setBarcode] = useState("");
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState<string>("");
   const [scanning, setScanning] = useState(false);
+  const qtyRef = useRef<HTMLInputElement>(null);
   const [finishing, setFinishing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 

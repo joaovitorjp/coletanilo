@@ -5,10 +5,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { STORES } from "@/lib/stores";
-import { Download, Inbox, Loader2, Search } from "lucide-react";
+import { Download, Inbox, Loader2, Search, Trash2 } from "lucide-react";
 import { buildCsv, downloadCsv } from "@/lib/csv";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/historico")({ component: Historico });
 

@@ -135,27 +135,28 @@ function ColetaPage() {
           <div>
             <label className="text-xs font-medium text-muted-foreground">Quantidade</label>
             <div className="mt-1 flex items-center gap-2">
-              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(Math.max(1, qty - 1))}>
+              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(String(Math.max(1, (parseInt(qty, 10) || 0) - 1)))}>
                 <Minus className="h-4 w-4" />
               </Button>
               <Input
+                ref={qtyRef}
                 type="number"
                 inputMode="numeric"
+                placeholder="0"
                 value={qty}
-                onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => { if (e.key === "Enter") addItem(barcode, qty); }}
                 className="h-12 text-center text-base font-semibold"
               />
-              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(qty + 1)}>
+              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => setQty(String((parseInt(qty, 10) || 0) + 1))}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {mode === "keyboard" && (
-            <Button onClick={() => addItem(barcode, qty)} className="h-12 w-full gap-2" style={{ background: "var(--gradient-primary)" }}>
-              <Plus className="h-4 w-4" /> Adicionar
-            </Button>
-          )}
+          <Button onClick={() => addItem(barcode, qty)} disabled={!barcode || !qty} className="h-12 w-full gap-2" style={{ background: "var(--gradient-primary)" }}>
+            <Plus className="h-4 w-4" /> Adicionar
+          </Button>
         </div>
 
         <div>

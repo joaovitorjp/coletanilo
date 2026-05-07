@@ -85,7 +85,13 @@ function ColetaPage() {
       <Toaster richColors position="top-center" />
       {scanning && (
         <BarcodeScanner
-          onDetected={(code) => { setScanning(false); addItem(code, qty || 1); }}
+          onDetected={(code) => {
+            setScanning(false);
+            setBarcode(code);
+            setQty("");
+            toast.info(`Código ${code} — informe a quantidade`);
+            setTimeout(() => qtyRef.current?.focus(), 100);
+          }}
           onClose={() => setScanning(false)}
         />
       )}

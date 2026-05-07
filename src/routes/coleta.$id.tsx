@@ -38,10 +38,11 @@ function ColetaPage() {
 
   useEffect(() => { load(); }, [id]);
 
-  const addItem = async (code: string, q: number) => {
+  const addItem = async (code: string, qStr: string) => {
     const clean = code.trim();
+    const q = parseInt(qStr, 10);
     if (!clean) { toast.error("Informe o código"); return; }
-    if (q < 1) { toast.error("Quantidade inválida"); return; }
+    if (!q || q < 1) { toast.error("Informe a quantidade"); qtyRef.current?.focus(); return; }
     const { data, error } = await supabase
       .from("collection_items")
       .insert({ collection_id: id, barcode: clean, quantity: q })
@@ -50,7 +51,7 @@ function ColetaPage() {
     if (error) { toast.error(error.message); return; }
     setItems((prev) => [data as Item, ...prev]);
     setBarcode("");
-    setQty(1);
+    setQty("");
     toast.success(`${clean} × ${q} adicionado`);
     inputRef.current?.focus();
   };

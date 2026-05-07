@@ -73,7 +73,7 @@ function ColetaPage() {
     setFinishing(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Coleta finalizada");
-    navigate({ to: "/coleta/$id/resumo", params: { id } });
+    navigate({ to: "/historico" });
   };
 
   if (!coll) return <AppShell><div className="flex justify-center pt-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></AppShell>;

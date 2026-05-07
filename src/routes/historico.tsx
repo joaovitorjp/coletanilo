@@ -57,6 +57,15 @@ function Historico() {
     downloadCsv(fname, buildCsv((data ?? []) as any));
   };
 
+  const remove = async (c: Coll) => {
+    const { error: e1 } = await supabase.from("collection_items").delete().eq("collection_id", c.id);
+    if (e1) { toast.error(e1.message); return; }
+    const { error: e2 } = await supabase.from("collections").delete().eq("id", c.id);
+    if (e2) { toast.error(e2.message); return; }
+    setList((prev) => (prev ?? []).filter((x) => x.id !== c.id));
+    toast.success("Coleta excluída");
+  };
+
   return (
     <AppShell title="Histórico">
       <Toaster richColors position="top-center" />
@@ -83,22 +92,46 @@ function Historico() {
         ) : (
           <ul className="space-y-2">
             {filtered.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-                <Link to="/coleta/$id/resumo" params={{ id: c.id }} className="flex flex-1 items-center gap-3 min-w-0">
-                  <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
-                    <span className="text-[10px] font-medium leading-none opacity-80">N°</span>
-                    <span className="text-sm font-bold leading-tight">{String(c.number).padStart(3, "0")}</span>
+              <li key={c.id} className="rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-card)]">
+                <div className="flex items-center gap-3">
+                  <Link to="/coleta/$id/resumo" params={{ id: c.id }} className="flex flex-1 items-center gap-3 min-w-0">
+                    <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+                      <span className="text-[10px] font-medium leading-none opacity-80">N°</span>
+                      <span className="text-sm font-bold leading-tight">{String(c.number).padStart(3, "0")}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">LOJA {c.store_code}</p>
+                      <p className="truncate text-xs text-muted-foreground">{c.store_name}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {new Date(c.finished_at ?? c.created_at).toLocaleString("pt-BR")} · {c.status === "finished" ? "Finalizada" : "Em andamento"}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex shrink-0 flex-col gap-1.5">
+                    <Button size="icon" variant="outline" onClick={() => download(c)} className="h-9 w-9">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-9 w-9 text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir coleta?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Coleta N° {String(c.number).padStart(3, "0")} da LOJA {c.store_code}. Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => remove(c)}>Excluir</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">LOJA {c.store_code} — {c.store_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(c.finished_at ?? c.created_at).toLocaleString("pt-BR")} · {c.status === "finished" ? "Finalizada" : "Em andamento"}
-                    </p>
-                  </div>
-                </Link>
-                <Button size="icon" variant="outline" onClick={() => download(c)} className="h-10 w-10 shrink-0">
-                  <Download className="h-4 w-4" />
-                </Button>
+                </div>
               </li>
             ))}
           </ul>

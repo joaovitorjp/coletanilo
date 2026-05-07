@@ -9,38 +9,74 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ColetaIdRouteImport } from './routes/coleta.$id'
+import { Route as ColetaIdResumoRouteImport } from './routes/coleta.$id.resumo'
 
+const HistoricoRoute = HistoricoRouteImport.update({
+  id: '/historico',
+  path: '/historico',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ColetaIdRoute = ColetaIdRouteImport.update({
+  id: '/coleta/$id',
+  path: '/coleta/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ColetaIdResumoRoute = ColetaIdResumoRouteImport.update({
+  id: '/resumo',
+  path: '/resumo',
+  getParentRoute: () => ColetaIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/historico': typeof HistoricoRoute
+  '/coleta/$id': typeof ColetaIdRouteWithChildren
+  '/coleta/$id/resumo': typeof ColetaIdResumoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/historico': typeof HistoricoRoute
+  '/coleta/$id': typeof ColetaIdRouteWithChildren
+  '/coleta/$id/resumo': typeof ColetaIdResumoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/historico': typeof HistoricoRoute
+  '/coleta/$id': typeof ColetaIdRouteWithChildren
+  '/coleta/$id/resumo': typeof ColetaIdResumoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/historico' | '/coleta/$id' | '/coleta/$id/resumo'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/historico' | '/coleta/$id' | '/coleta/$id/resumo'
+  id: '__root__' | '/' | '/historico' | '/coleta/$id' | '/coleta/$id/resumo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HistoricoRoute: typeof HistoricoRoute
+  ColetaIdRoute: typeof ColetaIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/historico': {
+      id: '/historico'
+      path: '/historico'
+      fullPath: '/historico'
+      preLoaderRoute: typeof HistoricoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +84,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/coleta/$id': {
+      id: '/coleta/$id'
+      path: '/coleta/$id'
+      fullPath: '/coleta/$id'
+      preLoaderRoute: typeof ColetaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coleta/$id/resumo': {
+      id: '/coleta/$id/resumo'
+      path: '/resumo'
+      fullPath: '/coleta/$id/resumo'
+      preLoaderRoute: typeof ColetaIdResumoRouteImport
+      parentRoute: typeof ColetaIdRoute
+    }
   }
 }
 
+interface ColetaIdRouteChildren {
+  ColetaIdResumoRoute: typeof ColetaIdResumoRoute
+}
+
+const ColetaIdRouteChildren: ColetaIdRouteChildren = {
+  ColetaIdResumoRoute: ColetaIdResumoRoute,
+}
+
+const ColetaIdRouteWithChildren = ColetaIdRoute._addFileChildren(
+  ColetaIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HistoricoRoute: HistoricoRoute,
+  ColetaIdRoute: ColetaIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

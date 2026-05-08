@@ -19,6 +19,8 @@ export type Database = {
           barcode: string
           collection_id: string
           created_at: string
+          description: string | null
+          gramatura: number | null
           id: string
           quantity: number
         }
@@ -26,6 +28,8 @@ export type Database = {
           barcode: string
           collection_id: string
           created_at?: string
+          description?: string | null
+          gramatura?: number | null
           id?: string
           quantity?: number
         }
@@ -33,6 +37,8 @@ export type Database = {
           barcode?: string
           collection_id?: string
           created_at?: string
+          description?: string | null
+          gramatura?: number | null
           id?: string
           quantity?: number
         }
@@ -73,6 +79,39 @@ export type Database = {
           status?: string
           store_code?: string
           store_name?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          barcode: string
+          created_at: string
+          description: string | null
+          gramatura: number
+          id: string
+          internal_code: string | null
+          package_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          description?: string | null
+          gramatura?: number
+          id?: string
+          internal_code?: string | null
+          package_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          description?: string | null
+          gramatura?: number
+          id?: string
+          internal_code?: string | null
+          package_type?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

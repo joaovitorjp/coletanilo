@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { History, ScanLine } from "lucide-react";
+import { Database, History, ScanLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children, title }: { children: React.ReactNode; title?: string }) {
@@ -19,9 +19,10 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
       </header>
       <main className="flex-1 px-5 py-5 pb-24">{children}</main>
       <nav className="fixed bottom-0 left-1/2 z-10 w-full max-w-md -translate-x-1/2 border-t border-border/60 bg-background/90 backdrop-blur-md">
-        <div className="grid grid-cols-2">
+        <div className="grid grid-cols-3">
           <NavItem to="/" active={pathname === "/"} icon={<ScanLine className="h-5 w-5" />} label="Nova Coleta" />
           <NavItem to="/historico" active={pathname.startsWith("/historico")} icon={<History className="h-5 w-5" />} label="Histórico" />
+          <NavItem to="/dados" active={pathname.startsWith("/dados")} icon={<Database className="h-5 w-5" />} label="Dados" />
         </div>
       </nav>
     </div>

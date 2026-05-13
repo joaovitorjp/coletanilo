@@ -67,33 +67,29 @@ function ColetaPage() {
     return () => clearTimeout(t);
   }, [barcode]);
 
-  const addItem = async (code: string, qStr: string) => {
+  const addItem = async (code: string, qBox: string, qUnit: string) => {
     const clean = code.trim();
-    const q = parseInt(qStr, 10);
+    const units = parseFloat((qUnit || "").replace(",", "."));
     if (!clean) { toast.error("Informe o código"); return; }
-    if (!q || q < 1) { toast.error("Informe a quantidade"); qtyRef.current?.focus(); return; }
+    if (!units || units <= 0) { toast.error("Informe a quantidade"); qtyUnitRef.current?.focus(); return; }
 
     const p = product && (product.barcode === clean || product.internal_code === clean) ? product : await lookupProduct(clean);
     if (!p) { toast.error("Produto não encontrado na base"); return; }
 
     const g = Number(p.gramatura) || 1;
-    if (g > 1 && q % g !== 0) {
-      toast.error(`Quantidade deve ser múltiplo de ${g} (${p.package_type ?? ""} ${g})`);
-      qtyRef.current?.focus();
-      return;
-    }
 
     const { data, error } = await supabase
       .from("collection_items")
-      .insert({ collection_id: id, barcode: p.barcode, quantity: q, description: p.description, gramatura: g })
+      .insert({ collection_id: id, barcode: p.barcode, quantity: units, description: p.description, gramatura: g })
       .select()
       .single();
     if (error) { toast.error(error.message); return; }
     setItems((prev) => [data as Item, ...prev]);
     setBarcode("");
-    setQty("");
+    setQtyBox("");
+    setQtyUnit("");
     setProduct(null);
-    toast.success(`${p.description ?? p.barcode} × ${q}`);
+    toast.success(`${p.description ?? p.barcode} × ${units}`);
     inputRef.current?.focus();
   };
 

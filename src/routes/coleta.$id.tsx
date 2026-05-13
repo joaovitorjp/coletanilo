@@ -22,11 +22,13 @@ function ColetaPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [mode, setMode] = useState<"keyboard" | "scan">("keyboard");
   const [barcode, setBarcode] = useState("");
-  const [qty, setQty] = useState<string>("");
+  const [qtyBox, setQtyBox] = useState<string>("");
+  const [qtyUnit, setQtyUnit] = useState<string>("");
   const [scanning, setScanning] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
-  const qtyRef = useRef<HTMLInputElement>(null);
+  const qtyBoxRef = useRef<HTMLInputElement>(null);
+  const qtyUnitRef = useRef<HTMLInputElement>(null);
   const [finishing, setFinishing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -65,33 +67,29 @@ function ColetaPage() {
     return () => clearTimeout(t);
   }, [barcode]);
 
-  const addItem = async (code: string, qStr: string) => {
+  const addItem = async (code: string, qBox: string, qUnit: string) => {
     const clean = code.trim();
-    const q = parseInt(qStr, 10);
+    const units = parseFloat((qUnit || "").replace(",", "."));
     if (!clean) { toast.error("Informe o código"); return; }
-    if (!q || q < 1) { toast.error("Informe a quantidade"); qtyRef.current?.focus(); return; }
+    if (!units || units <= 0) { toast.error("Informe a quantidade"); qtyUnitRef.current?.focus(); return; }
 
     const p = product && (product.barcode === clean || product.internal_code === clean) ? product : await lookupProduct(clean);
     if (!p) { toast.error("Produto não encontrado na base"); return; }
 
     const g = Number(p.gramatura) || 1;
-    if (g > 1 && q % g !== 0) {
-      toast.error(`Quantidade deve ser múltiplo de ${g} (${p.package_type ?? ""} ${g})`);
-      qtyRef.current?.focus();
-      return;
-    }
 
     const { data, error } = await supabase
       .from("collection_items")
-      .insert({ collection_id: id, barcode: p.barcode, quantity: q, description: p.description, gramatura: g })
+      .insert({ collection_id: id, barcode: p.barcode, quantity: units, description: p.description, gramatura: g })
       .select()
       .single();
     if (error) { toast.error(error.message); return; }
     setItems((prev) => [data as Item, ...prev]);
     setBarcode("");
-    setQty("");
+    setQtyBox("");
+    setQtyUnit("");
     setProduct(null);
-    toast.success(`${p.description ?? p.barcode} × ${q}`);
+    toast.success(`${p.description ?? p.barcode} × ${units}`);
     inputRef.current?.focus();
   };
 
@@ -119,11 +117,29 @@ function ColetaPage() {
 
   const totalQty = items.reduce((s, i) => s + Number(i.quantity), 0);
   const g = product ? Number(product.gramatura) || 1 : 1;
-  const stepBy = (delta: number) => {
-    const cur = parseInt(qty, 10) || 0;
-    const step = g > 1 ? g : 1;
-    const next = Math.max(0, cur + delta * step);
-    setQty(next === 0 ? "" : String(next));
+  const hasBox = !!product && g > 1;
+
+  const fmt = (n: number) => {
+    if (!isFinite(n)) return "";
+    const r = Math.round(n * 1000) / 1000;
+    return String(r);
+  };
+  const handleBoxChange = (v: string) => {
+    const clean = v.replace(/[^0-9.,]/g, "").replace(",", ".");
+    setQtyBox(clean);
+    if (clean === "" || clean === ".") { setQtyUnit(""); return; }
+    const n = parseFloat(clean);
+    if (isNaN(n)) { setQtyUnit(""); return; }
+    setQtyUnit(fmt(n * g));
+  };
+  const handleUnitChange = (v: string) => {
+    const clean = v.replace(/[^0-9.,]/g, "").replace(",", ".");
+    setQtyUnit(clean);
+    if (!hasBox) return;
+    if (clean === "" || clean === ".") { setQtyBox(""); return; }
+    const n = parseFloat(clean);
+    if (isNaN(n)) { setQtyBox(""); return; }
+    setQtyBox(fmt(n / g));
   };
 
   return (
@@ -134,9 +150,10 @@ function ColetaPage() {
           onDetected={(code) => {
             setScanning(false);
             setBarcode(code);
-            setQty("");
+            setQtyBox("");
+            setQtyUnit("");
             toast.info(`Código ${code} — informe a quantidade`);
-            setTimeout(() => qtyRef.current?.focus(), 100);
+            setTimeout(() => (qtyBoxRef.current ?? qtyUnitRef.current)?.focus(), 100);
           }}
           onClose={() => setScanning(false)}
         />
@@ -169,7 +186,7 @@ function ColetaPage() {
               placeholder="Código de barras ou interno"
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") qtyRef.current?.focus(); }}
+              onKeyDown={(e) => { if (e.key === "Enter") (qtyBoxRef.current ?? qtyUnitRef.current)?.focus(); }}
               className="h-12 text-base"
             />
           ) : (
@@ -187,7 +204,7 @@ function ColetaPage() {
                   <p className="font-medium leading-snug">{product.description ?? product.barcode}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {product.package_type ?? "—"} {product.gramatura}
-                    {g > 1 && <span className="ml-2">• múltiplos de {g}</span>}
+                    {g > 1 && <span className="ml-2">• 1 cx = {g} un</span>}
                   </p>
                 </>
               ) : (
@@ -196,31 +213,38 @@ function ColetaPage() {
             </div>
           )}
 
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">
-              Quantidade {g > 1 && <span className="text-primary">(múltiplo de {g})</span>}
-            </label>
-            <div className="mt-1 flex items-center gap-2">
-              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => stepBy(-1)}>
-                <Minus className="h-4 w-4" />
-              </Button>
+          <div className={hasBox ? "grid grid-cols-2 gap-2" : ""}>
+            {hasBox && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Caixas</label>
+                <Input
+                  ref={qtyBoxRef}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={qtyBox}
+                  onChange={(e) => handleBoxChange(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addItem(barcode, qtyBox, qtyUnit); }}
+                  className="h-12 mt-1 text-center text-base font-semibold"
+                />
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Unidades</label>
               <Input
-                ref={qtyRef}
-                type="number"
-                inputMode="numeric"
+                ref={qtyUnitRef}
+                type="text"
+                inputMode="decimal"
                 placeholder="0"
-                value={qty}
-                onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
-                onKeyDown={(e) => { if (e.key === "Enter") addItem(barcode, qty); }}
-                className="h-12 text-center text-base font-semibold"
+                value={qtyUnit}
+                onChange={(e) => handleUnitChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addItem(barcode, qtyBox, qtyUnit); }}
+                className="h-12 mt-1 text-center text-base font-semibold"
               />
-              <Button type="button" variant="outline" size="icon" className="h-12 w-12 shrink-0" onClick={() => stepBy(1)}>
-                <Plus className="h-4 w-4" />
-              </Button>
             </div>
           </div>
 
-          <Button onClick={() => addItem(barcode, qty)} disabled={!barcode || !qty || !product} className="h-12 w-full gap-2" style={{ background: "var(--gradient-primary)" }}>
+          <Button onClick={() => addItem(barcode, qtyBox, qtyUnit)} disabled={!barcode || !qtyUnit || !product} className="h-12 w-full gap-2" style={{ background: "var(--gradient-primary)" }}>
             <Plus className="h-4 w-4" /> Adicionar
           </Button>
         </div>

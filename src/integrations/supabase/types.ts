@@ -82,6 +82,48 @@ export type Database = {
         }
         Relationships: []
       }
+      product_inventory: {
+        Row: {
+          barcode: string
+          created_at: string
+          days_without_sale: number | null
+          description: string | null
+          id: string
+          internal_code: string | null
+          section: string | null
+          status: string
+          stock_coverage_days: number | null
+          store: string | null
+          updated_at: string
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          days_without_sale?: number | null
+          description?: string | null
+          id?: string
+          internal_code?: string | null
+          section?: string | null
+          status?: string
+          stock_coverage_days?: number | null
+          store?: string | null
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          days_without_sale?: number | null
+          description?: string | null
+          id?: string
+          internal_code?: string | null
+          section?: string | null
+          status?: string
+          stock_coverage_days?: number | null
+          store?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string

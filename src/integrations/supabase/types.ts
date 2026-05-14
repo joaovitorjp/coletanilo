@@ -162,6 +162,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      inventory_distinct_sections: {
+        Args: never
+        Returns: {
+          section: string
+        }[]
+      }
+      inventory_distinct_stores: {
+        Args: never
+        Returns: {
+          store: string
+        }[]
+      }
       next_collection_number: {
         Args: { p_store_code: string }
         Returns: number

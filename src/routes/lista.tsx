@@ -59,24 +59,14 @@ function ListaPage() {
   const [total, setTotal] = useState(0);
 
   const loadFilters = async () => {
-    // Distinct via ordered fetch (small overhead acceptable)
-    const { data: secData } = await supabase
-      .from("product_inventory")
-      .select("section")
-      .not("section", "is", null)
-      .order("section")
-      .limit(1000);
-    const secSet = Array.from(new Set((secData ?? []).map((r: any) => r.section).filter(Boolean)));
-    setSections(secSet);
-
-    const { data: storeData } = await supabase
-      .from("product_inventory")
-      .select("store")
-      .not("store", "is", null)
-      .order("store")
-      .limit(1000);
-    const storeSet = Array.from(new Set((storeData ?? []).map((r: any) => r.store).filter(Boolean)));
-    setStores(storeSet);
+    const [{ data: secData, error: secErr }, { data: storeData, error: stErr }] = await Promise.all([
+      supabase.rpc("inventory_distinct_sections"),
+      supabase.rpc("inventory_distinct_stores"),
+    ]);
+    if (secErr) console.error(secErr);
+    if (stErr) console.error(stErr);
+    setSections(((secData ?? []) as any[]).map((r) => r.section).filter(Boolean));
+    setStores(((storeData ?? []) as any[]).map((r) => r.store).filter(Boolean));
   };
 
   const load = async () => {

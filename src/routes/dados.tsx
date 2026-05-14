@@ -26,17 +26,23 @@ const CHUNK_SIZE = 1000;
 
 function DadosPage() {
   const [count, setCount] = useState<number | null>(null);
+  const [invCount, setInvCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [fileName, setFileName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const invInputRef = useRef<HTMLInputElement>(null);
 
   const refreshCount = async () => {
     const { count } = await supabase
       .from("products")
       .select("*", { count: "exact", head: true });
     setCount(count ?? 0);
+    const { count: ic } = await supabase
+      .from("product_inventory")
+      .select("*", { count: "exact", head: true });
+    setInvCount(ic ?? 0);
   };
 
   useEffect(() => { refreshCount(); }, []);

@@ -215,16 +215,31 @@ function DadosPage() {
     <AppShell title="Dados">
       <Toaster richColors position="top-center" />
       <div className="space-y-4">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
-              <Database className="h-5 w-5 text-primary-foreground" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
+                <Database className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground">Produtos</p>
+                <p className="truncate text-base font-semibold">
+                  {count === null ? "..." : count.toLocaleString("pt-BR")}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted-foreground">Produtos cadastrados</p>
-              <p className="truncate text-lg font-semibold">
-                {count === null ? "..." : count.toLocaleString("pt-BR")}
-              </p>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
+                <FileSpreadsheet className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground">Lista</p>
+                <p className="truncate text-base font-semibold">
+                  {invCount === null ? "..." : invCount.toLocaleString("pt-BR")}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -270,6 +285,34 @@ function DadosPage() {
           )}
         </div>
 
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <h3 className="text-sm font-semibold">Importar lista informativa</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Colunas: A=código interno, B=descrição, C=código de barras, D=cobertura estoque (dias), I=dias sem venda, P=seção, Q=loja
+          </p>
+
+          <input
+            ref={invInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleInventory(f);
+            }}
+          />
+
+          <Button
+            onClick={() => invInputRef.current?.click()}
+            disabled={busy}
+            variant="outline"
+            className="mt-3 h-12 w-full gap-2"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {busy ? "Processando..." : "Selecionar planilha de lista"}
+          </Button>
+        </div>
+
         {count !== null && count > 0 && !busy && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -287,6 +330,28 @@ function DadosPage() {
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={clearAll}>Limpar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {invCount !== null && invCount > 0 && !busy && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="h-11 w-full gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 className="h-4 w-4" /> Limpar lista informativa
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Limpar lista?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Todos os {invCount.toLocaleString("pt-BR")} itens da lista serão removidos.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={clearInventory}>Limpar</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

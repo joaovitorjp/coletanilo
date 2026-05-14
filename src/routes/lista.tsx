@@ -93,6 +93,11 @@ function ListaPage() {
   useEffect(() => { loadFilters(); }, []);
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [section, store, statusFilter, page]);
   useEffect(() => { setPage(0); }, [section, store, statusFilter, search]);
+  useEffect(() => {
+    const t = setTimeout(() => { load(); }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line
+  }, [search]);
 
   const updateStatus = async (id: string, next: Status) => {
     const prev = items;

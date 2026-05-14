@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ListaRouteImport } from './routes/lista'
 import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as DadosRouteImport } from './routes/dados'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ColetaIdRouteImport } from './routes/coleta.$id'
 import { Route as ColetaIdResumoRouteImport } from './routes/coleta.$id.resumo'
 
+const ListaRoute = ListaRouteImport.update({
+  id: '/lista',
+  path: '/lista',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoricoRoute = HistoricoRouteImport.update({
   id: '/historico',
   path: '/historico',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dados': typeof DadosRoute
   '/historico': typeof HistoricoRoute
+  '/lista': typeof ListaRoute
   '/coleta/$id': typeof ColetaIdRouteWithChildren
   '/coleta/$id/resumo': typeof ColetaIdResumoRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dados': typeof DadosRoute
   '/historico': typeof HistoricoRoute
+  '/lista': typeof ListaRoute
   '/coleta/$id': typeof ColetaIdRouteWithChildren
   '/coleta/$id/resumo': typeof ColetaIdResumoRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dados': typeof DadosRoute
   '/historico': typeof HistoricoRoute
+  '/lista': typeof ListaRoute
   '/coleta/$id': typeof ColetaIdRouteWithChildren
   '/coleta/$id/resumo': typeof ColetaIdResumoRoute
 }
@@ -69,15 +78,23 @@ export interface FileRouteTypes {
     | '/'
     | '/dados'
     | '/historico'
+    | '/lista'
     | '/coleta/$id'
     | '/coleta/$id/resumo'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dados' | '/historico' | '/coleta/$id' | '/coleta/$id/resumo'
+  to:
+    | '/'
+    | '/dados'
+    | '/historico'
+    | '/lista'
+    | '/coleta/$id'
+    | '/coleta/$id/resumo'
   id:
     | '__root__'
     | '/'
     | '/dados'
     | '/historico'
+    | '/lista'
     | '/coleta/$id'
     | '/coleta/$id/resumo'
   fileRoutesById: FileRoutesById
@@ -86,11 +103,19 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DadosRoute: typeof DadosRoute
   HistoricoRoute: typeof HistoricoRoute
+  ListaRoute: typeof ListaRoute
   ColetaIdRoute: typeof ColetaIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/lista': {
+      id: '/lista'
+      path: '/lista'
+      fullPath: '/lista'
+      preLoaderRoute: typeof ListaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/historico': {
       id: '/historico'
       path: '/historico'
@@ -145,6 +170,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DadosRoute: DadosRoute,
   HistoricoRoute: HistoricoRoute,
+  ListaRoute: ListaRoute,
   ColetaIdRoute: ColetaIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport

@@ -26,17 +26,23 @@ const CHUNK_SIZE = 1000;
 
 function DadosPage() {
   const [count, setCount] = useState<number | null>(null);
+  const [invCount, setInvCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [fileName, setFileName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const invInputRef = useRef<HTMLInputElement>(null);
 
   const refreshCount = async () => {
     const { count } = await supabase
       .from("products")
       .select("*", { count: "exact", head: true });
     setCount(count ?? 0);
+    const { count: ic } = await supabase
+      .from("product_inventory")
+      .select("*", { count: "exact", head: true });
+    setInvCount(ic ?? 0);
   };
 
   useEffect(() => { refreshCount(); }, []);
@@ -109,6 +115,80 @@ function DadosPage() {
     }
   };
 
+  const handleInventory = async (file: File) => {
+    setBusy(true);
+    setProgress(0);
+    setFileName(file.name);
+    setStatus("Lendo planilha de lista...");
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array", dense: true, cellDates: false, cellFormula: false, cellHTML: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error("Planilha vazia");
+      const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true, blankrows: false });
+      let start = 0;
+      const first = rows[0];
+      if (first && typeof first[0] === "string" && /codigo|código|cod\b/i.test(String(first[0]))) start = 1;
+
+      const num = (v: any) => {
+        if (v == null || v === "") return null;
+        const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+        return isFinite(n) ? n : null;
+      };
+      const str = (v: any) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
+
+      const records: any[] = [];
+      for (let i = start; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r) continue;
+        // Columns: A=0, B=1, C=2, D=3, I=8, P=15, Q=16
+        const barcode = str(r[2]);
+        if (!barcode) continue;
+        records.push({
+          internal_code: str(r[0]),
+          description: str(r[1]),
+          barcode,
+          stock_coverage_days: num(r[3]),
+          days_without_sale: num(r[8]),
+          section: str(r[15]),
+          store: str(r[16]),
+        });
+      }
+
+      // Dedup by barcode+store (keep last)
+      const map = new Map<string, any>();
+      for (const r of records) map.set(`${r.barcode}|${r.store ?? ""}`, r);
+      const unique = Array.from(map.values());
+
+      const total = unique.length;
+      setStatus(`Enviando ${total.toLocaleString("pt-BR")} itens...`);
+
+      let done = 0;
+      for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
+        const chunk = unique.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
+          .from("product_inventory")
+          .upsert(chunk, { onConflict: "barcode,store", ignoreDuplicates: false });
+        if (error) throw error;
+        done += chunk.length;
+        setProgress(Math.round((done / total) * 100));
+        setStatus(`Enviados ${done.toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")}`);
+        await new Promise((r) => setTimeout(r, 0));
+      }
+
+      toast.success(`${total.toLocaleString("pt-BR")} itens importados`);
+      setStatus("Concluído");
+      await refreshCount();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message ?? "Erro ao importar");
+      setStatus("Erro: " + (e.message ?? "desconhecido"));
+    } finally {
+      setBusy(false);
+      if (invInputRef.current) invInputRef.current.value = "";
+    }
+  };
+
   const clearAll = async () => {
     setBusy(true);
     setStatus("Limpando base...");
@@ -120,20 +200,46 @@ function DadosPage() {
     setStatus("");
   };
 
+  const clearInventory = async () => {
+    setBusy(true);
+    setStatus("Limpando lista...");
+    const { error } = await supabase.from("product_inventory").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Lista limpa");
+    await refreshCount();
+    setStatus("");
+  };
+
   return (
     <AppShell title="Dados">
       <Toaster richColors position="top-center" />
       <div className="space-y-4">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
-              <Database className="h-5 w-5 text-primary-foreground" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
+                <Database className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground">Produtos</p>
+                <p className="truncate text-base font-semibold">
+                  {count === null ? "..." : count.toLocaleString("pt-BR")}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted-foreground">Produtos cadastrados</p>
-              <p className="truncate text-lg font-semibold">
-                {count === null ? "..." : count.toLocaleString("pt-BR")}
-              </p>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
+                <FileSpreadsheet className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground">Lista</p>
+                <p className="truncate text-base font-semibold">
+                  {invCount === null ? "..." : invCount.toLocaleString("pt-BR")}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -179,6 +285,34 @@ function DadosPage() {
           )}
         </div>
 
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <h3 className="text-sm font-semibold">Importar lista informativa</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Colunas: A=código interno, B=descrição, C=código de barras, D=cobertura estoque (dias), I=dias sem venda, P=seção, Q=loja
+          </p>
+
+          <input
+            ref={invInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleInventory(f);
+            }}
+          />
+
+          <Button
+            onClick={() => invInputRef.current?.click()}
+            disabled={busy}
+            variant="outline"
+            className="mt-3 h-12 w-full gap-2"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {busy ? "Processando..." : "Selecionar planilha de lista"}
+          </Button>
+        </div>
+
         {count !== null && count > 0 && !busy && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -196,6 +330,28 @@ function DadosPage() {
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={clearAll}>Limpar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {invCount !== null && invCount > 0 && !busy && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="h-11 w-full gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 className="h-4 w-4" /> Limpar lista informativa
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Limpar lista?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Todos os {invCount.toLocaleString("pt-BR")} itens da lista serão removidos.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={clearInventory}>Limpar</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

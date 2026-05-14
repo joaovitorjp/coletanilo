@@ -115,6 +115,80 @@ function DadosPage() {
     }
   };
 
+  const handleInventory = async (file: File) => {
+    setBusy(true);
+    setProgress(0);
+    setFileName(file.name);
+    setStatus("Lendo planilha de lista...");
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array", dense: true, cellDates: false, cellFormula: false, cellHTML: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error("Planilha vazia");
+      const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true, blankrows: false });
+      let start = 0;
+      const first = rows[0];
+      if (first && typeof first[0] === "string" && /codigo|código|cod\b/i.test(String(first[0]))) start = 1;
+
+      const num = (v: any) => {
+        if (v == null || v === "") return null;
+        const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+        return isFinite(n) ? n : null;
+      };
+      const str = (v: any) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
+
+      const records: any[] = [];
+      for (let i = start; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r) continue;
+        // Columns: A=0, B=1, C=2, D=3, I=8, P=15, Q=16
+        const barcode = str(r[2]);
+        if (!barcode) continue;
+        records.push({
+          internal_code: str(r[0]),
+          description: str(r[1]),
+          barcode,
+          stock_coverage_days: num(r[3]),
+          days_without_sale: num(r[8]),
+          section: str(r[15]),
+          store: str(r[16]),
+        });
+      }
+
+      // Dedup by barcode+store (keep last)
+      const map = new Map<string, any>();
+      for (const r of records) map.set(`${r.barcode}|${r.store ?? ""}`, r);
+      const unique = Array.from(map.values());
+
+      const total = unique.length;
+      setStatus(`Enviando ${total.toLocaleString("pt-BR")} itens...`);
+
+      let done = 0;
+      for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
+        const chunk = unique.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
+          .from("product_inventory")
+          .upsert(chunk, { onConflict: "barcode,store", ignoreDuplicates: false });
+        if (error) throw error;
+        done += chunk.length;
+        setProgress(Math.round((done / total) * 100));
+        setStatus(`Enviados ${done.toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")}`);
+        await new Promise((r) => setTimeout(r, 0));
+      }
+
+      toast.success(`${total.toLocaleString("pt-BR")} itens importados`);
+      setStatus("Concluído");
+      await refreshCount();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message ?? "Erro ao importar");
+      setStatus("Erro: " + (e.message ?? "desconhecido"));
+    } finally {
+      setBusy(false);
+      if (invInputRef.current) invInputRef.current.value = "";
+    }
+  };
+
   const clearAll = async () => {
     setBusy(true);
     setStatus("Limpando base...");
@@ -122,6 +196,17 @@ function DadosPage() {
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Base de produtos limpa");
+    await refreshCount();
+    setStatus("");
+  };
+
+  const clearInventory = async () => {
+    setBusy(true);
+    setStatus("Limpando lista...");
+    const { error } = await supabase.from("product_inventory").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Lista limpa");
     await refreshCount();
     setStatus("");
   };

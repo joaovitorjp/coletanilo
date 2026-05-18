@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Camera, Check, Keyboard, Loader2, Minus, Package, Plus, Trash2 } from "lucide-react";
+import { Camera, Check, Keyboard, Loader2, Package, Plus, PlusCircle, Trash2 } from "lucide-react";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/coleta/$id")({ component: ColetaPage });
 
@@ -27,10 +28,20 @@ function ColetaPage() {
   const [scanning, setScanning] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const [suggestions, setSuggestions] = useState<Product[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const qtyBoxRef = useRef<HTMLInputElement>(null);
   const qtyUnitRef = useRef<HTMLInputElement>(null);
   const [finishing, setFinishing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Manual add dialog
+  const [manualOpen, setManualOpen] = useState(false);
+  const [mBarcode, setMBarcode] = useState("");
+  const [mDescription, setMDescription] = useState("");
+  const [mGramatura, setMGramatura] = useState("");
+  const [mPackage, setMPackage] = useState("");
+  const [savingManual, setSavingManual] = useState(false);
 
   const load = async () => {
     const [{ data: c }, { data: it }] = await Promise.all([
@@ -56,18 +67,41 @@ function ColetaPage() {
     return (data as Product) ?? null;
   };
 
-  // Lookup product when barcode changes (debounced)
+  const isNumeric = (s: string) => /^[0-9]+$/.test(s.trim());
+
+  // Lookup product or search by description (debounced)
   useEffect(() => {
-    const code = barcode.trim();
-    if (!code) { setProduct(null); return; }
+    const q = barcode.trim();
+    if (!q) { setProduct(null); setSuggestions([]); return; }
     const t = setTimeout(async () => {
-      const p = await lookupProduct(code);
-      setProduct(p);
-    }, 250);
+      if (isNumeric(q)) {
+        const p = await lookupProduct(q);
+        setProduct(p);
+        setSuggestions([]);
+      } else if (q.length >= 2) {
+        setLookingUp(true);
+        const { data } = await supabase
+          .from("products")
+          .select("internal_code,barcode,description,package_type,gramatura")
+          .ilike("description", `%${q}%`)
+          .limit(15);
+        setLookingUp(false);
+        setSuggestions((data as Product[]) ?? []);
+        setProduct(null);
+      }
+    }, 300);
     return () => clearTimeout(t);
   }, [barcode]);
 
-  const addItem = async (code: string, qBox: string, qUnit: string) => {
+  const selectProduct = (p: Product) => {
+    setBarcode(p.barcode);
+    setProduct(p);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setTimeout(() => (qtyBoxRef.current ?? qtyUnitRef.current)?.focus(), 50);
+  };
+
+  const addItem = async (code: string, _qBox: string, qUnit: string) => {
     const clean = code.trim();
     const units = parseFloat((qUnit || "").replace(",", "."));
     if (!clean) { toast.error("Informe o código"); return; }
@@ -89,8 +123,41 @@ function ColetaPage() {
     setQtyBox("");
     setQtyUnit("");
     setProduct(null);
+    setSuggestions([]);
     toast.success(`${p.description ?? p.barcode} × ${units}`);
     inputRef.current?.focus();
+  };
+
+  const openManual = () => {
+    setMBarcode(isNumeric(barcode.trim()) ? barcode.trim() : "");
+    setMDescription(!isNumeric(barcode.trim()) ? barcode.trim() : "");
+    setMGramatura("");
+    setMPackage("");
+    setManualOpen(true);
+  };
+
+  const saveManual = async () => {
+    const bc = mBarcode.trim();
+    const desc = mDescription.trim();
+    const gr = parseFloat(mGramatura.replace(",", "."));
+    if (!bc) { toast.error("Código de barras obrigatório"); return; }
+    if (!desc) { toast.error("Descrição obrigatória"); return; }
+    if (!gr || gr <= 0) { toast.error("Gramatura obrigatória"); return; }
+    setSavingManual(true);
+    const { data, error } = await supabase
+      .from("products")
+      .insert({ barcode: bc, description: desc, gramatura: gr, package_type: mPackage.trim() || null })
+      .select("internal_code,barcode,description,package_type,gramatura")
+      .single();
+    setSavingManual(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Produto cadastrado");
+    setManualOpen(false);
+    const p = data as Product;
+    setBarcode(p.barcode);
+    setProduct(p);
+    setSuggestions([]);
+    setTimeout(() => (Number(p.gramatura) > 1 ? qtyBoxRef.current : qtyUnitRef.current)?.focus(), 100);
   };
 
   const removeItem = async (itemId: string) => {
@@ -118,6 +185,7 @@ function ColetaPage() {
   const totalQty = items.reduce((s, i) => s + Number(i.quantity), 0);
   const g = product ? Number(product.gramatura) || 1 : 1;
   const hasBox = !!product && g > 1;
+  const notFound = !!barcode.trim() && isNumeric(barcode.trim()) && !lookingUp && !product;
 
   const fmt = (n: number) => {
     if (!isFinite(n)) return "";
@@ -179,16 +247,32 @@ function ColetaPage() {
 
         <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
           {mode === "keyboard" ? (
-            <Input
-              ref={inputRef}
-              autoFocus
-              inputMode="numeric"
-              placeholder="Código de barras ou interno"
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") (qtyBoxRef.current ?? qtyUnitRef.current)?.focus(); }}
-              className="h-12 text-base"
-            />
+            <div className="relative">
+              <Input
+                ref={inputRef}
+                autoFocus
+                placeholder="Código de barras ou descrição"
+                value={barcode}
+                onChange={(e) => { setBarcode(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onKeyDown={(e) => { if (e.key === "Enter" && product) (qtyBoxRef.current ?? qtyUnitRef.current)?.focus(); }}
+                className="h-12 text-base"
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-border bg-card shadow-lg">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s.barcode}
+                      onClick={() => selectProduct(s)}
+                      className="block w-full border-b border-border px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
+                    >
+                      <p className="truncate font-medium">{s.description ?? s.barcode}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{s.barcode}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <Button onClick={() => setScanning(true)} variant="outline" className="h-12 w-full gap-2">
               <Camera className="h-4 w-4" /> Abrir câmera
@@ -196,7 +280,7 @@ function ColetaPage() {
           )}
 
           {barcode && (
-            <div className={`rounded-xl border p-3 text-sm ${product ? "border-primary/30 bg-primary/5" : "border-destructive/30 bg-destructive/5"}`}>
+            <div className={`rounded-xl border p-3 text-sm ${product ? "border-primary/30 bg-primary/5" : notFound ? "border-destructive/30 bg-destructive/5" : "border-border bg-muted/30"}`}>
               {lookingUp ? (
                 <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando...</div>
               ) : product ? (
@@ -207,8 +291,15 @@ function ColetaPage() {
                     {g > 1 && <span className="ml-2">• 1 cx = {g} un</span>}
                   </p>
                 </>
+              ) : notFound ? (
+                <div className="space-y-2">
+                  <p className="font-medium text-destructive">Produto não encontrado na base</p>
+                  <Button onClick={openManual} variant="outline" size="sm" className="w-full gap-2">
+                    <PlusCircle className="h-4 w-4" /> Adicionar produto manualmente
+                  </Button>
+                </div>
               ) : (
-                <p className="font-medium text-destructive">Produto não encontrado na base</p>
+                <p className="text-muted-foreground">Digite ao menos 2 caracteres da descrição</p>
               )}
             </div>
           )}
@@ -285,6 +376,40 @@ function ColetaPage() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Adicionar produto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Código de barras *</label>
+              <Input value={mBarcode} onChange={(e) => setMBarcode(e.target.value)} inputMode="numeric" className="mt-1 h-11" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Descrição *</label>
+              <Input value={mDescription} onChange={(e) => setMDescription(e.target.value)} className="mt-1 h-11" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Embalagem</label>
+                <Input value={mPackage} onChange={(e) => setMPackage(e.target.value)} placeholder="UN, CX..." className="mt-1 h-11" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Gramatura *</label>
+                <Input value={mGramatura} onChange={(e) => setMGramatura(e.target.value)} inputMode="decimal" placeholder="1" className="mt-1 h-11" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)} disabled={savingManual}>Cancelar</Button>
+            <Button onClick={saveManual} disabled={savingManual} style={{ background: "var(--gradient-primary)" }}>
+              {savingManual ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

@@ -24,7 +24,7 @@ import {
 export const Route = createFileRoute("/dados")({ component: DadosGate });
 
 // Senha para acessar a aba Dados. Altere aqui para mudar.
-const DADOS_PASSWORD = "nilo2026";
+const DADOS_PASSWORD = "Nilo@@2026";
 const AUTH_KEY = "dados_auth_ok";
 
 const CHUNK_SIZE = 1000;

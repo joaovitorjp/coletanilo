@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Database, FileSpreadsheet, Loader2, Upload, Trash2 } from "lucide-react";
+import { Database, FileSpreadsheet, Loader2, Upload, Trash2, Lock } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,9 +21,68 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export const Route = createFileRoute("/dados")({ component: DadosPage });
+export const Route = createFileRoute("/dados")({ component: DadosGate });
+
+// Senha para acessar a aba Dados. Altere aqui para mudar.
+const DADOS_PASSWORD = "nilo2026";
+const AUTH_KEY = "dados_auth_ok";
 
 const CHUNK_SIZE = 1000;
+
+function DadosGate() {
+  const [authed, setAuthed] = useState(false);
+  const [pwd, setPwd] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && sessionStorage.getItem(AUTH_KEY) === "1") {
+      setAuthed(true);
+    }
+  }, []);
+
+  if (authed) return <DadosPage />;
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwd === DADOS_PASSWORD) {
+      sessionStorage.setItem(AUTH_KEY, "1");
+      setAuthed(true);
+    } else {
+      setError("Senha incorreta");
+      setPwd("");
+    }
+  };
+
+  return (
+    <AppShell title="Dados">
+      <div className="mx-auto mt-10 max-w-sm rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "var(--gradient-primary)" }}>
+            <Lock className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <h2 className="text-base font-semibold">Acesso restrito</h2>
+          <p className="text-xs text-muted-foreground">
+            Digite a senha para acessar a aba Dados.
+          </p>
+        </div>
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <Input
+            type="password"
+            autoFocus
+            placeholder="Senha"
+            value={pwd}
+            onChange={(e) => { setPwd(e.target.value); setError(""); }}
+            className="h-11"
+          />
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <Button type="submit" className="h-11 w-full" style={{ background: "var(--gradient-primary)" }}>
+            Entrar
+          </Button>
+        </form>
+      </div>
+    </AppShell>
+  );
+}
 
 function DadosPage() {
   const [count, setCount] = useState<number | null>(null);

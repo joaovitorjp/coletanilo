@@ -112,19 +112,34 @@ function ColetaPage() {
 
     const g = Number(p.gramatura) || 1;
 
-    const { data, error } = await supabase
-      .from("collection_items")
-      .insert({ collection_id: id, barcode: p.barcode, quantity: units, description: p.description, gramatura: g })
-      .select()
-      .single();
-    if (error) { toast.error(error.message); return; }
-    setItems((prev) => [data as Item, ...prev]);
+    // Se o produto já existe na coleta, soma as quantidades
+    const existing = items.find((i) => i.barcode === p.barcode);
+    if (existing) {
+      const newQty = Number(existing.quantity) + units;
+      const { data, error } = await supabase
+        .from("collection_items")
+        .update({ quantity: newQty, description: p.description, gramatura: g })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) { toast.error(error.message); return; }
+      setItems((prev) => [data as Item, ...prev.filter((i) => i.id !== existing.id)]);
+      toast.success(`${p.description ?? p.barcode} +${units} (total ${newQty})`);
+    } else {
+      const { data, error } = await supabase
+        .from("collection_items")
+        .insert({ collection_id: id, barcode: p.barcode, quantity: units, description: p.description, gramatura: g })
+        .select()
+        .single();
+      if (error) { toast.error(error.message); return; }
+      setItems((prev) => [data as Item, ...prev]);
+      toast.success(`${p.description ?? p.barcode} × ${units}`);
+    }
     setBarcode("");
     setQtyBox("");
     setQtyUnit("");
     setProduct(null);
     setSuggestions([]);
-    toast.success(`${p.description ?? p.barcode} × ${units}`);
     inputRef.current?.focus();
   };
 
